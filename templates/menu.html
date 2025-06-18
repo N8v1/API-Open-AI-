@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MAX Chat</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <video class="video-background" id="background-video" autoplay muted loop>
+        <source src="static/video5195355010048747767.mp4" type="video/mp4">
+        Ваш браузер не поддерживает HTML5 видео.
+    </video>
+    <div class="centered-text" id="centered-text">Что хотите создать?</div>
+    <div class="container">
+        <div class="overlay" id="overlay"></div>
+
+        <div class="login-popup" id="login-popup">
+            <h2>Войти через</h2>
+            <button class="google-button" onclick="loginWithGoogle()">
+                <img src="https://cdn1.iconfinder.com/data/icons/google-s-logo/150/Google_Icons-09-512.png" alt="Google" style="width: 20px; height: 20px;pointer-events: none;">
+                Google
+            </button>
+            <button onclick="loginWithEmail()">Войти по почте</button>
+            <button class="whod" onclick="loginWithoutRegistration()">Без регистрации</button>
+        </div>
+    <button class="login-button" id="login-button" onclick="showLoginPopup()">Войти</button>
+        <div class="chat-box" id="chat-box">
+        </div>
+        <div class="input-area">
+            <textarea id="input-box" class="input-box" placeholder="Спросите у MAX" onkeydown="handleKeyDown(event)"></textarea>
+            <button class="send-button" onclick="sendMessage()">
+                <img src="static/ch1.png" alt="Отправить">
+            </button>
+        </div>
+        <p class="disclaimer">MAX может иногда ошибаться, поэтому проверяйте информацию.</p>
+    <div class="gradient-footer"></div>
+    <script>
+        const chatBox = document.getElementById('chat-box');
+        const inputBox = document.getElementById('input-box');
+        const loginPopup = document.getElementById('login-popup');
+        const overlay = document.getElementById('overlay');
+        const loginButton = document.getElementById('login-button');
+        const inputArea = document.querySelector('.input-area');
+        const disclaimer = document.querySelector('.disclaimer');
+        const backgroundVideo = document.getElementById('background-video');
+        const centeredText = document.getElementById('centered-text');
+
+        backgroundVideo.addEventListener('ended', () => {
+        backgroundVideo.currentTime = 0;
+        backgroundVideo.play();
+    });
+function updateInputHeight() {
+    if (inputBox.value.trim() === '') {
+        inputBox.style.height = '40px';
+    } else {
+        inputBox.style.height = 'auto';
+        inputBox.style.height = `${Math.max(inputBox.scrollHeight, 40)}px`;
+    }
+}
+inputBox.style.height = '40px';
+inputBox.style.lineHeight = '1.2';
+inputBox.style.paddingTop = '8px';
+inputBox.style.paddingLeft = '12px';
+inputBox.style.paddingRight = '12px';
+inputBox.style.fontFamily = 'Arial, sans-serif'; 
+inputBox.style.fontSize = '16px';
+
+inputBox.addEventListener('input', updateInputHeight);
+
+function handleKeyDown(event) {
+    if (event.key === 'Enter' && !event.shiftKey) {
+        event.preventDefault();
+        sendMessage();
+        inputBox.style.height = '40px';
+    }
+    else if (event.key === 'Enter' && event.shiftKey) {
+        updateInputHeight();
+    }
+}
+function sendMessage() {
+    const userMessage = inputBox.value.trim();
+    if (userMessage) {
+        console.log("Сообщение отправлено:", userMessage);
+        inputBox.value = '';
+        inputBox.style.height = '40px';
+    }
+}
+function sendMessage() {
+    const userMessage = inputBox.value.trim();
+    if (userMessage) {
+        addMessage(userMessage, 'user');
+        inputBox.value = '';
+        inputBox.style.height = 'auto';
+        if (!backgroundVideo.classList.contains('hidden')) {
+            backgroundVideo.classList.add('hidden');
+            centeredText.classList.add('hidden');
+            chatBox.style.display = 'flex';
+        }
+
+        const typingIndicator = document.createElement('div');
+        typingIndicator.classList.add('typing');
+        typingIndicator.textContent = 'Печатает...';
+        chatBox.appendChild(typingIndicator);
+        chatBox.scrollTop = chatBox.scrollHeight;
+
+        fetch('/chat', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ message: userMessage }),
+        })
+            .then(response => response.json())
+            .then(data => {
+                chatBox.removeChild(typingIndicator);
+                addMessageByWords(data.reply, 'bot');
+            })
+            .catch(error => {
+                chatBox.removeChild(typingIndicator);
+                addMessage('Произошла ошибка при отправке сообщения.', 'bot');
+            });
+    }
+}
+
+function addMessage(message, sender) {
+    const messageDiv = document.createElement('div');
+    messageDiv.classList.add('message', sender);
+    const formattedMessage = message.replace(/\n/g, '<br>');
+    messageDiv.innerHTML = formattedMessage;
+    chatBox.appendChild(messageDiv);
+    chatBox.scrollTop = chatBox.scrollHeight;
+}
+function addMessageByWords(message, sender) {
+    const chatBox = document.getElementById('chat-box');
+    const messageDiv = document.createElement('div');
+    messageDiv.classList.add('message', sender);
+    chatBox.appendChild(messageDiv);
+    const formattedMessage = message.replace(/\n/g, '<br>');
+    const words = formattedMessage.split(' ');
+    let index = 0;
+    function showNextWord() {
+        if (index < words.length) {
+            const span = document.createElement('span');
+            if (words[index].includes('<br>')) {
+                const parts = words[index].split('<br>');
+                span.textContent = parts[0] + ' ';
+                span.style.opacity = '0';
+                span.style.animation = 'fadeIn 0.5s forwards';
+                messageDiv.appendChild(span);
+
+                const lineBreak = document.createElement('br');
+                messageDiv.appendChild(lineBreak);
+
+                words.splice(index + 1, 0, parts[1]);
+            } else {
+                span.textContent = words[index] + ' ';
+                span.style.opacity = '0';
+                span.style.animation = 'fadeIn 0.5s forwards';
+                messageDiv.appendChild(span);
+            }
+
+            index++;
+            setTimeout(showNextWord, 50);
+        } else {
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+    }
+    showNextWord();
+}
+        function hideLoginPopup() {
+            loginPopup.style.display = 'none';
+            overlay.style.display = 'none';
+            loginButton.style.display = 'block';
+            chatBox.style.display = 'flex';
+            inputArea.style.display = 'flex';
+            disclaimer.style.display = 'block';
+        }
+        function showLoginPopup() {
+            loginPopup.style.display = 'block';
+            overlay.style.display = 'block';
+            loginButton.style.display = 'none';
+        }
+        function loginWithGoogle() {
+            alert('Функция входа через Google пока не реализована.');
+            hideLoginPopup();
+        }
+        function loginWithEmail() {
+            alert('Функция входа через почту пока не реализована.');
+            hideLoginPopup();
+        }
+        function loginWithoutRegistration() {
+            hideLoginPopup();
+        }
+        window.onload = () => {
+            loginPopup.style.display = 'block';
+            overlay.style.display = 'block';
+        };
+        function addPlainMessage(text, sender) {
+            const messageDiv = document.createElement('div');
+            messageDiv.classList.add('message', sender);
+            messageDiv.textContent = text;
+            chatBox.appendChild(messageDiv);
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+    </script>
+</body>
+</html>
